@@ -4,7 +4,9 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 import time
 from snowflake_integration import connect_to_snowflake, create_table, stage_data, load_data
+from details import t_login, t_password
 import csv
+import re
 
 # Configure Chrome options for headless scraping (no GUI)
 chrome_options = Options()
@@ -45,11 +47,11 @@ def save_to_csv(tweet_data):
 def login():
     driver.get(login_url)
     time.sleep(2)
-    driver.find_element("xpath", '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[5]/label/div/div[2]/div/input').send_keys('USER-NAME')
+    driver.find_element("xpath", '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[5]/label/div/div[2]/div/input').send_keys(t_login)
     time.sleep(1)
     driver.find_element("xpath", '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div/div/div/div[6]/div').click()
     time.sleep(2)
-    driver.find_element("xpath", '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input').send_keys('PASSWORD')
+    driver.find_element("xpath", '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[3]/div/label/div/div[2]/div[1]/input').send_keys(t_password)
     time.sleep(1)
     driver.find_element("xpath", '//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]/div/div/div/div').click()
     time.sleep(2)
@@ -131,9 +133,26 @@ tweet_data = search()
 driver.close()
 save_to_csv(tweet_data)
 
+def get_valid_table_name(search_term):
+    # Remove spaces and replace with underscores
+    cleaned_name = search_term.replace(" ", "_").lower()
+
+    # Remove any characters that are not allowed in SQL table names and replace with underscores
+    cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '_', cleaned_name)
+    
+    # Ensure the table name starts with a letter or an underscore
+    if not cleaned_name[0].isalpha() and cleaned_name[0] != '_':
+        cleaned_name = '_' + cleaned_name
+    
+    # Limit the table name to a maximum of 128 characters
+    max_length = 128
+    if len(cleaned_name) > max_length:
+        cleaned_name = cleaned_name[:max_length]
+    
+    return cleaned_name
+
 # Prompt user for table name (use the search term as the default table name)
-default_table_name = search_term.replace(" ", "_").lower()
-table_name = default_table_name
+table_name = get_valid_table_name(search_term)
 
 # Connect to Snowflake
 conn = connect_to_snowflake()
